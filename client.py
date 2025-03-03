@@ -1,56 +1,82 @@
 import socket
 import json
+import auth
+import wallet
+import transaction
 
-SERVER_HOST = "127.0.0.1"
-SERVER_PORT = 8000
+SERVER_HOST = "127.0.0.1"  
+SERVER_PORT = 8000         
 
 def send_request(action, data={}):
     """Sends request to the server and returns the response."""
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((SERVER_HOST, SERVER_PORT))
-    
-    request_data = {"action": action}
-    request_data.update(data)
+    try:
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect((SERVER_HOST, SERVER_PORT))
 
-    client_socket.send(json.dumps(request_data).encode())
-    response = json.loads(client_socket.recv(1024).decode())
-    client_socket.close()
+        request_data = {"action": action}
+        request_data.update(data)
 
-    return response
+        client_socket.send(json.dumps(request_data).encode())
+        response = json.loads(client_socket.recv(1024).decode())
+        client_socket.close()
+
+        return response
+
+    except ConnectionRefusedError:
+        print("Could not connect to the server. Is it running?")
+        return {"error": "Server unavailable"}
 
 def main():
     while True:
-        print("\n1. Create Wallet")
-        print("2. Get Wallet Info")
-        print("3. Send Tokens")
-        print("4. Exit")
+        print("\n1. Login")
+        print("2. Register")
+        print("3. Exit")
         choice = input("Enter choice: ")
 
         if choice == "1":
-            response = send_request("create_wallet")
-            print(response)
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            response = send_request("login", {"username": username, "password": password})
+            if response.get("success"):
+                user_menu(username)
+            else:
+                print("Invalid username or password.")
 
         elif choice == "2":
-            wallet_address = input("Enter wallet address: ")
-            response = send_request("get_wallet", {"wallet_address": wallet_address})
-            print(response)
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            response = send_request("register", {"username": username, "password": password})
+            print(response.get("message", "Registration failed."))
 
         elif choice == "3":
-            sender_wallet = input("Enter sender wallet address: ")
-            receiver_wallet = input("Enter receiver wallet address: ")
-            amount = float(input("Enter amount: "))
-            response = send_request("send_tokens", {
-                "sender_wallet": sender_wallet,
-                "receiver_wallet": receiver_wallet,
-                "amount": amount
-            })
-            print(response)
-
-        elif choice == "4":
             print("Exiting...")
             break
         else:
             print("Invalid choice. Try again.")
+
+def user_menu(username):
+    while True:
+        print("\n1. Send Tokens")
+        print("2. Check Wallet")
+        print("3. Logout")
+        choice = input("Enter choice: ")
+
+        if choice == "1":
+            receiver = input("Enter receiver username: ")
+            amount = float(input("Enter amount: "))
+            response = send_request("send_tokens", {
+                "sender_username": username,
+                "receiver_username": receiver,
+                "amount": amount
+            })
+            print(response.get("message", "Transaction failed."))
+
+        elif choice == "2":
+            response = send_request("get_wallet", {"username": username})
+            print(response)
+
+        elif choice == "3":
+            break
 
 if __name__ == "__main__":
     main()
