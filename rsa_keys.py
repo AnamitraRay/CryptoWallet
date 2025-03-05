@@ -18,7 +18,7 @@ def aes_decrypt(encrypted_data, key):
     cipher = AES.new(key, AES.MODE_EAX, nonce)
     return cipher.decrypt_and_verify(ciphertext, tag)
 
-def generate_and_store_rsa_keys(user_id):
+def generate_and_store_rsa_keys(username):
     """Generates an RSA key pair, encrypts the private key, and stores it securely in the database."""
     rsa_key = RSA.generate(2048)
     public_key = rsa_key.publickey().export_key()
@@ -29,18 +29,18 @@ def generate_and_store_rsa_keys(user_id):
 
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO keys (user_id, public_key, encrypted_private_key, aes_key) VALUES (?, ?, ?, ?)',
-                   (user_id, public_key.decode(), encrypted_private_key, base64.b64encode(aes_key).decode()))
+    cursor.execute('INSERT INTO keys (username, public_key, encrypted_private_key, aes_key) VALUES (?, ?, ?, ?)',
+                   (username, public_key.decode(), encrypted_private_key, base64.b64encode(aes_key).decode()))
     conn.commit()
     conn.close()
 
-    print(f"RSA keys generated and stored securely for User: {user_id}")
+    print(f"RSA keys generated and stored securely for User: {username}")
 
-def load_rsa_keys(user_id):
+def load_rsa_keys(username):
     """Retrieves an RSA key pair from the database and decrypts the private key."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
-    cursor.execute('SELECT public_key, encrypted_private_key, aes_key FROM keys WHERE user_id = ?', (user_id,))
+    cursor.execute('SELECT public_key, encrypted_private_key, aes_key FROM keys WHERE username = ?', (username,))
     row = cursor.fetchone()
     conn.close()
 

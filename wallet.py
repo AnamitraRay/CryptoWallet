@@ -30,4 +30,3 @@ def get_wallet(username):
         wallet_id, balance = wallet
         return {"wallet_id": wallet_id, "balance": balance}
     return None
-

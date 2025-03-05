@@ -8,27 +8,34 @@ def register(username, password):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
-    # Check if user already exists
-    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
-    if cursor.fetchone():
-        print("Username already taken.")
-        conn.close()
+    try:
+        # Check if user already exists
+        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+        if cursor.fetchone():
+            print("Username already taken.")
+            return False
+
+        # Hash password and convert it to a string
+        password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+        # Create wallet
+        wallet_id, wallet_address = wallet.create_wallet(username)
+        print(f"Generated Wallet ID: {wallet_id}, Address: {wallet_address}")
+
+        # Store user details
+        cursor.execute("INSERT INTO users (username, password_hash, wallet_id) VALUES (?, ?, ?)",
+                       (username, password_hash, wallet_id))
+
+        conn.commit()  # Ensure data is saved
+        print(f"User '{username}' registered successfully!")
+        return True
+
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
         return False
 
-    # Hash password
-    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-    # Create wallet
-    wallet_id, wallet_address = wallet.create_wallet(username)
-
-    # Store user details
-    cursor.execute("INSERT INTO users (username, password_hash, wallet_id) VALUES (?, ?, ?)",
-                   (username, password_hash, wallet_id))
-    conn.commit()
-    conn.close()
-    
-    print(f"✅ User '{username}' registered successfully! Wallet Address: {wallet_address}")
-    return True
+    finally:
+        conn.close()
 
 def login(username, password):
     """Validates login credentials."""
@@ -37,8 +44,8 @@ def login(username, password):
 
     cursor.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
     row = cursor.fetchone()
-    
-    if row and bcrypt.checkpw(password.encode(), row[0].encode()):
+
+    if row and bcrypt.checkpw(password.encode(), row[0].encode()):  # Fix: Ensure proper encoding
         print(f"Login successful! Welcome, {username}.")
         return True
     else:
