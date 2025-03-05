@@ -45,7 +45,7 @@ def login(username, password):
     cursor.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
     row = cursor.fetchone()
 
-    if row and bcrypt.checkpw(password.encode(), row[0].encode()):  # Fix: Ensure proper encoding
+    if row and bcrypt.checkpw(password.encode(), row[0].encode()):  
         print(f"Login successful! Welcome, {username}.")
         return True
     else:
