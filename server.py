@@ -95,6 +95,6 @@ def start_server():
         client_thread.start()
 
 if __name__ == "__main__":
-    print("🛠 Initializing database...")
-    database.init_db()  # Ensure database is initialized before starting
+    print("Initializing database...")
+    database.init_db()  
     start_server()

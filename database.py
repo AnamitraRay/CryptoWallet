@@ -7,7 +7,7 @@ def init_db():
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
 
-    # ✅ Enable Foreign Keys
+    # Enable Foreign Keys
     cursor.execute("PRAGMA foreign_keys = ON;")  
 
     try:
@@ -55,13 +55,12 @@ def init_db():
             )
         """)
 
-        print("✅ Database initialized successfully.")
+        print("Database initialized successfully.")
     except sqlite3.Error as e:
-        print(f"❌ Database error: {e}")
+        print(f"Database error: {e}")
     finally:
         conn.commit()
         conn.close()
 
-# Run initialization when script is executed
 if __name__ == "__main__":
     init_db()

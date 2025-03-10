@@ -26,7 +26,7 @@ def register(username, password):
         cursor.execute("INSERT INTO users (username, password_hash, wallet_id) VALUES (?, ?, ?)",
                        (username, password_hash, wallet_id))
 
-        conn.commit()  # Ensure data is saved
+        conn.commit()  
         print(f"User '{username}' registered successfully!")
         return True
 
