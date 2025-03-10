@@ -11,7 +11,7 @@ def create_wallet(username):
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("INSERT INTO wallets (wallet_id, balance, wallet_address) VALUES (?, ?, ?)",
-                   (wallet_id, 0.0, wallet_address))
+                   (wallet_id, 100.0, wallet_address))
     conn.commit()
     conn.close()
 
