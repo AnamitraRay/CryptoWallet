@@ -49,22 +49,22 @@ def create_transaction(sender_username, receiver_username, amount):
     """Processes a transaction using sender & receiver usernames."""
     tx_id = str(uuid.uuid4())[:12]  # Ensuring a unique transaction ID
 
-    print(f"🔍 Checking if users exist: {sender_username}, {receiver_username}")
+    print(f"Checking if users exist: {sender_username}, {receiver_username}")
     if not user_exists(sender_username):
         return False, f"Sender {sender_username} does not exist."
     if not user_exists(receiver_username):
         return False, f"Receiver {receiver_username} does not exist."
 
-    print(f"🔍 Validating balance for sender: {sender_username}")
+    print(f"Validating balance for sender: {sender_username}")
     if not validate_balance(sender_username, amount):
         return False, "Sender has insufficient balance."
 
-    print(f"🔍 Loading RSA keys for sender: {sender_username}")
+    print(f"Loading RSA keys for sender: {sender_username}")
     public_key, private_key = load_rsa_keys(sender_username)
     if not private_key:
         return False, "Could not retrieve private key for signing."
 
-    print(f"🔍 Generating transaction signature...")
+    print(f"Generating transaction signature...")
     tx_data = f"{tx_id}{sender_username}{receiver_username}{amount}"
     tx_hash = SHA256.new(tx_data.encode())
 
