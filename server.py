@@ -1,100 +1,87 @@
-import sqlite3
 import socket
 import json
-import threading
 import auth
-import wallet
 import transaction
-import database
+from database import init_server_db
+import sqlite3
+from database import SERVER_DB
 
-DB_FILE = "wallets.db"
 HOST = "127.0.0.1"
 PORT = 8000
 
-def handle_request(client_socket):
-    """Handles client requests safely and returns responses."""
-    try:
-        request = client_socket.recv(1024).decode().strip()
-        
-        if not request:
-            client_socket.send(json.dumps({"error": "Empty request"}).encode())
-            return
-        
-        try:
-            request_data = json.loads(request)
-        except json.JSONDecodeError:
-            client_socket.send(json.dumps({"error": "Invalid JSON format"}).encode())
-            return
+def get_balance(username):
+    """Fetches the wallet balance for a user."""
+    conn = sqlite3.connect(SERVER_DB)
+    cursor = conn.cursor()
 
-        action = request_data.get("action")
+    try:
+        cursor.execute("""
+            SELECT balance FROM wallets 
+            WHERE wallet_id = (SELECT wallet_id FROM users WHERE username=?)
+        """, (username,))
+        row = cursor.fetchone()
+        
+        if row:
+            return True, row[0]  # Success, return balance
+        return False, "User wallet not found."
+
+    except sqlite3.Error as e:
+        return False, f"Database error: {e}"
+
+    finally:
+        conn.close()
+
+def handle_request(client_socket):
+    try:
+        request = json.loads(client_socket.recv(4096).decode())
+        action = request.get("action")
         response = {}
 
         if action == "register":
-            username = request_data.get("username")
-            password = request_data.get("password")
-            if not username or not password:
-                response = {"error": "Username and password are required"}
-            else:
-                success = auth.register(username, password)
-                response = {"success": success, "message": "Registration successful" if success else "Registration failed"}
+            response["success"], response["message"] = auth.register(request["username"], request["password"], request["public_key"])
 
         elif action == "login":
-            username = request_data.get("username")
-            password = request_data.get("password")
-            if not username or not password:
-                response = {"error": "Username and password are required"}
-            else:
-                success = auth.login(username, password)
-                response = {"success": success, "message": "Login successful" if success else "Invalid username or password"}
+            response["success"], response["message"] = auth.login(request["username"], request["password"])
 
-        elif action == "get_wallet":
-            username = request_data.get("username")
-            if not username:
-                response = {"error": "Username is required"}
+        elif action == "check_balance":
+            success, balance = get_balance(request["username"])
+            response["success"] = success
+            if success:
+                response["balance"] = balance
             else:
-                wallet_data = wallet.get_wallet(username)
-                response = wallet_data if wallet_data else {"error": "Wallet not found"}
+                response["message"] = balance  # Send error message
 
-        elif action == "send_tokens":
-            sender = request_data.get("sender_username")
-            receiver = request_data.get("receiver_username")
-            amount = request_data.get("amount")
-
-            if not sender or not receiver or amount is None:
-                response = {"error": "Missing transaction details"}
-            else:
-                success, message = transaction.create_transaction(sender, receiver, amount)
-                response = {"message": message, "success": success}
+        elif action == "send_tokens":  # Added missing transaction handling
+            success, message = transaction.create_transaction(
+                request["sender_username"],
+                request["receiver_username"],
+                request["amount"],
+                request["signature"]
+            )
+            response["success"] = success
+            response["message"] = message  # Always include "message"
 
         else:
-            response = {"error": "Invalid request"}
+            response["success"] = False
+            response["message"] = "Invalid action."
 
-        client_socket.send(json.dumps(response).encode())
-
-    except sqlite3.OperationalError as e:
-        response = {"error": f"Database error: {str(e)}"}
         client_socket.send(json.dumps(response).encode())
 
     except Exception as e:
-        response = {"error": f"Server error: {str(e)}"}
-        client_socket.send(json.dumps(response).encode())
+        error_response = {"success": False, "message": f"Server error: {str(e)}"}
+        client_socket.send(json.dumps(error_response).encode())
 
     finally:
         client_socket.close()
 
-def start_server():
-    """Starts the wallet server with threading to handle multiple clients."""
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(5)
-    print(f"Server listening on {HOST}:{PORT}")
+# Ensure database is initialized before starting the server
+init_server_db()
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server_socket.bind((HOST, PORT))
+server_socket.listen(5)
 
-    while True:
-        client_socket, _ = server_socket.accept()
-        client_thread = threading.Thread(target=handle_request, args=(client_socket,))
-        client_thread.start()
+print(f"Server running on {HOST}:{PORT}")
 
-if __name__ == "__main__":
-    print("Initializing database...")
-    database.init_db()  
-    start_server()
+while True:
+    client_socket, _ = server_socket.accept()
+    handle_request(client_socket)

@@ -1,53 +1,60 @@
-import sqlite3
 import bcrypt
-import wallet
-from database import DB_FILE
+import sqlite3
+import uuid
+from database import SERVER_DB
 
-def register(username, password):
-    """Registers a new user, creates their wallet, and stores credentials securely."""
-    conn = sqlite3.connect(DB_FILE)
+def hash_password(password):
+    """Hashes a password using bcrypt."""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode(), salt).decode()  # Store as string
+
+def verify_password(plain_password, hashed_password):
+    """Verifies a password against a stored hash."""
+    return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
+
+def register(username, password, public_key):
+    """Registers a new user and creates a wallet."""
+    conn = sqlite3.connect(SERVER_DB)
     cursor = conn.cursor()
 
+    # Hash the password
+    password_hash = hash_password(password)
+
+    # Create wallet
+    wallet_id = str(uuid.uuid4())[:8]
+    wallet_address = f"wallet_{wallet_id}"
+
     try:
-        # Check if user already exists
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
-        if cursor.fetchone():
-            print("Username already taken.")
-            return False
+        # Insert into wallets table
+        cursor.execute("INSERT INTO wallets (wallet_id, balance, wallet_address) VALUES (?, ?, ?)",
+                       (wallet_id, 100.0, wallet_address))
 
-        # Hash password and convert it to a string
-        password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+        # Insert into users table
+        cursor.execute("INSERT INTO users (username, password_hash, public_key, wallet_id) VALUES (?, ?, ?, ?)",
+                       (username, password_hash, public_key, wallet_id))
 
-        # Create wallet
-        wallet_id, wallet_address = wallet.create_wallet(username)
-        print(f"Generated Wallet ID: {wallet_id}, Address: {wallet_address}")
+        conn.commit()
+        return True, f"User registered successfully! Wallet Address: {wallet_address}"
 
-        # Store user details
-        cursor.execute("INSERT INTO users (username, password_hash, wallet_id) VALUES (?, ?, ?)",
-                       (username, password_hash, wallet_id))
-
-        conn.commit()  
-        print(f"User '{username}' registered successfully!")
-        return True
-
-    except sqlite3.Error as e:
-        print(f"Database error: {e}")
-        return False
+    except sqlite3.IntegrityError:
+        return False, "Username already taken."
 
     finally:
         conn.close()
 
 def login(username, password):
-    """Validates login credentials."""
-    conn = sqlite3.connect(DB_FILE)
+    """Verifies login credentials."""
+    conn = sqlite3.connect(SERVER_DB)
     cursor = conn.cursor()
 
-    cursor.execute("SELECT password_hash FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT password_hash FROM users WHERE username=?", (username,))
     row = cursor.fetchone()
+    conn.close()
 
-    if row and bcrypt.checkpw(password.encode(), row[0].encode()):  
-        print(f"Login successful! Welcome, {username}.")
-        return True
-    else:
-        print("Invalid username or password.")
-        return False
+    if row:
+        stored_hash = row[0]
+        if verify_password(password, stored_hash):
+            return True, "Login successful!"
+        else:
+            return False, "Incorrect password."
+    return False, "User not found."
