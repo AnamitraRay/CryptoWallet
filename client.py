@@ -71,30 +71,36 @@ def send_tokens(username):
         print("Invalid amount. Please enter a valid number.")
         return
 
+    # Load the user's private key (decrypting it with AES)
     private_key = load_private_key(username)
     if not private_key:
         print("Private key not found. Ensure you're using the correct client.")
         return
 
+    # Transaction data to be signed
     transaction_data = f"{username}-{receiver}-{amount}"
-    hash_obj = SHA256.new(transaction_data.encode())
+    hash_obj = SHA256.new(transaction_data.encode())  # Hash the transaction data
 
     try:
-        signature = pkcs1_15.new(private_key).sign(hash_obj).hex()
+        # Sign the transaction hash with the private key
+        signature = pkcs1_15.new(private_key).sign(hash_obj).hex()  # The signature is in hex format
     except ValueError:
         print("Error in signing transaction.")
         return
 
+    # Create the request payload to send to the server
     request = {
         "action": "send_tokens",
         "sender_username": username,
         "receiver_username": receiver,
         "amount": amount,
-        "signature": signature
+        "signature": signature  # Send the signature to the server
     }
 
+    # Send the request to the server and print the response
     response = send_request(request)
     print(response["message"])
+
 
 def check_balance(username):
     """Requests the balance of the user's wallet from the server."""

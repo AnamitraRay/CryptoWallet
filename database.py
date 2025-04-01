@@ -63,7 +63,8 @@ def init_client_db():
         CREATE TABLE keys (
             username TEXT UNIQUE NOT NULL,
             public_key TEXT NOT NULL,
-            private_key TEXT NOT NULL
+            encrypted_private_key TEXT NOT NULL,
+            aes_key TEXT NOT NULL
         )
     """)
 
